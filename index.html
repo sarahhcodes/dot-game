@@ -239,11 +239,8 @@
                 scoreElement.innerText = score;
 
                 // --- REWARD MECHANIC 1: SCORE MILESTONES ---
-                if (score >= 1000 && currentBaseImage !== 'images/peanut-bowtie.png') {
-                    currentBaseImage = 'images/peanut-bowtie.png';
-                    peanutImg.src = currentBaseImage;
-                } else if (score >= 500 && score < 1000 && currentBaseImage !== 'images/peanut-hat.png') {
-                    currentBaseImage = 'images/peanut-hat.png';
+                if (score >= 500 && currentBaseImage !== 'images/peanut-r.png') {
+                    currentBaseImage = 'images/peanut-r.png';
                     peanutImg.src = currentBaseImage;
                 }
 
