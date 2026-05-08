@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Dot Pop Peanut Puzzle</title>
+    <style>
+        /* Strict lock to absolutely prevent any scrolling or background drag */
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden; 
+            background-color: #121212;
+            color: #FFFFFF;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            overscroll-behavior: none; 
+            touch-action: none; 
+        }
+
+        /* Landscape layout container */
+        #game-container {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            gap: 50px; 
+            box-sizing: border-box;
+            padding: 20px;
+        }
+
+        /* Left-side UI Panel */
+        #ui-panel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between; 
+            width: 300px;
+            height: 80%; 
+            flex-shrink: 0;
+        }
+
+        #top-ui { text-align: center; }
+
+        h1 {
+            font-size: 3rem;
+            margin: 0;
+            color: #FFFFFF;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+
+        #score-display {
+            font-size: 2.2rem;
+            font-weight: bold;
+            color: #FFDE00; 
+            margin-top: 10px;
+        }
+
+        /* Container for the Peanut Image */
+        #peanut-container {
+            width: 180px;
+            height: 180px;
+            margin: 20px 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #peanut-character {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            /* A subtle transition makes the image swap feel a bit smoother */
+            transition: transform 0.1s; 
+        }
+
+        /* Game Board */
+        #game-board {
+            position: relative;
+            width: 690px;  
+            height: 595px; 
+            background-color: #1E1E1E;
+            border-radius: 20px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.5);
+            overflow: hidden; 
+            flex-shrink: 0;
+        }
+
+        /* Large dots (80x80) for easy tapping */
+        .dot {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: inset -6px -6px 12px rgba(0,0,0,0.3), 0 4px 10px rgba(0,0,0,0.4);
+            transition: top 0.4s ease-in-out, transform 0.2s ease-in;
+        }
+        .dot:active { transform: scale(0.9); }
+        .dot.popped { transform: scale(0); }
+
+        /* High Contrast Dot Colors */
+        .color-0 { background-color: #FFDE00; } /* Yellow */
+        .color-1 { background-color: #FF007F; } /* Magenta */
+        .color-2 { background-color: #00E5FF; } /* Cyan */
+        .color-3 { background-color: #39FF14; } /* Green */
+
+        #reset-btn {
+            padding: 25px 30px;
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: white;
+            background-color: #4A90E2;
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 6px 0 #2A5A92;
+            cursor: pointer;
+            width: 100%;
+        }
+        #reset-btn:active {
+            transform: translateY(6px);
+            box-shadow: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div id="ui-panel">
+            <div id="top-ui">
+                <h1>DOT POP</h1>
+                <div id="score-display">Score: <span id="score">0</span></div>
+            </div>
+
+            <div id="peanut-container">
+                <img id="peanut-character" src="images/peanut-idle.png" alt="Happy Peanut Sidekick">
+            </div>
+
+            <button id="reset-btn" onclick="initGame()">New Game</button>
+        </div>
+
+        <div id="game-board"></div>
+    </div>
+
+    <script>
+        // Landscape grid setup
+        const rows = 6;
+        const cols = 7;
+        const colors = 4;
+        
+        const dotSize = 80;
+        const gap = 15;
+        const padding = 20;
+
+        let board = [];
+        let score = 0;
+        let isAnimating = false;
+
+        const boardElement = document.getElementById('game-board');
+        const scoreElement = document.getElementById('score');
+        
+        // Peanut Image Progression Variables
+        const peanutImg = document.getElementById('peanut-character');
+        let currentBaseImage = 'images/peanut-idle.png';
+        let jumpTimeout = null;
+
+        function getLeftPos(col) { return padding + col * (dotSize + gap); }
+        function getTopPos(row) { return padding + row * (dotSize + gap); }
+
+        function initGame() {
+            if (isAnimating) return;
+            
+            score = 0;
+            scoreElement.innerText = score;
+            boardElement.innerHTML = '';
+            board = [];
+
+            // Reset Peanut Image
+            currentBaseImage = 'images/peanut-idle.png';
+            peanutImg.src = currentBaseImage;
+
+            for (let r = 0; r < rows; r++) {
+                let row = [];
+                for (let c = 0; c < cols; c++) {
+                    let randomColor = Math.floor(Math.random() * colors);
+                    
+                    let dot = document.createElement('div');
+                    dot.classList.add('dot', `color-${randomColor}`);
+                    dot.style.left = `${getLeftPos(c)}px`;
+                    dot.style.top = `${getTopPos(r)}px`;
+                    
+                    dot.dataset.row = r;
+                    dot.dataset.col = c;
+                    
+                    dot.addEventListener('pointerdown', handleTap); 
+                    boardElement.appendChild(dot);
+
+                    row.push({ color: randomColor, element: dot });
+                }
+                board.push(row);
+            }
+        }
+
+        function handleTap(e) {
+            if (isAnimating) return; 
+
+            const r = parseInt(e.currentTarget.dataset.row);
+            const c = parseInt(e.currentTarget.dataset.col);
+            
+            if (!board[r][c]) return;
+            
+            const color = board[r][c].color;
+
+            let matched = [];
+            let visited = Array(rows).fill().map(() => Array(cols).fill(false));
+
+            function floodFill(row, col) {
+                if (row < 0 || row >= rows || col < 0 || col >= cols) return;
+                if (visited[row][col] || !board[row][col] || board[row][col].color !== color) return;
+
+                visited[row][col] = true;
+                matched.push({ row, col });
+
+                floodFill(row + 1, col);
+                floodFill(row - 1, col);
+                floodFill(row, col + 1);
+                floodFill(row, col - 1);
+            }
+
+            floodFill(r, c);
+
+            if (matched.length >= 2) {
+                isAnimating = true;
+                score += (matched.length * 10);
+                scoreElement.innerText = score;
+
+                // --- REWARD MECHANIC 1: SCORE MILESTONES ---
+                if (score >= 1000 && currentBaseImage !== 'images/peanut-bowtie.png') {
+                    currentBaseImage = 'images/peanut-bowtie.png';
+                    peanutImg.src = currentBaseImage;
+                } else if (score >= 500 && score < 1000 && currentBaseImage !== 'images/peanut-hat.png') {
+                    currentBaseImage = 'images/peanut-hat.png';
+                    peanutImg.src = currentBaseImage;
+                }
+
+                // --- REWARD MECHANIC 2: INSTANT REACTION ---
+                // If a big group (4+) is cleared, swap to the jump image temporarily
+                if (matched.length >= 4) {
+                    peanutImg.src = 'images/peanut-jump.png';
+                    
+                    // Clear any existing timeout so it doesn't revert early if she taps fast
+                    if(jumpTimeout) clearTimeout(jumpTimeout);
+                    
+                    // Revert back to whatever the base image should be after 600ms
+                    jumpTimeout = setTimeout(() => {
+                        peanutImg.src = currentBaseImage;
+                    }, 600);
+                }
+
+                // Match/Clear animation
+                matched.forEach(dotInfo => {
+                    const cell = board[dotInfo.row][dotInfo.col];
+                    cell.element.classList.add('popped');
+                    
+                    setTimeout(() => {
+                        if(cell.element.parentNode) {
+                            cell.element.parentNode.removeChild(cell.element);
+                        }
+                    }, 200);
+
+                    board[dotInfo.row][dotInfo.col] = null;
+                });
+
+                // Falling animation trigger
+                setTimeout(() => {
+                    applyGravity();
+                }, 200);
+            }
+        }
+
+        function applyGravity() {
+            for (let c = 0; c < cols; c++) {
+                let emptySpaces = 0;
+                
+                for (let r = rows - 1; r >= 0; r--) {
+                    if (board[r][c] === null) {
+                        emptySpaces++;
+                    } else if (emptySpaces > 0) {
+                        board[r + emptySpaces][c] = board[r][c];
+                        board[r][c] = null;
+                        
+                        let dotData = board[r + emptySpaces][c];
+                        dotData.element.dataset.row = r + emptySpaces;
+                        dotData.element.style.top = `${getTopPos(r + emptySpaces)}px`;
+                    }
+                }
+
+                for (let r = 0; r < emptySpaces; r++) {
+                    let randomColor = Math.floor(Math.random() * colors);
+                    let newDot = document.createElement('div');
+                    newDot.classList.add('dot', `color-${randomColor}`);
+                    
+                    newDot.style.left = `${getLeftPos(c)}px`;
+                    newDot.style.top = `${getTopPos(r - emptySpaces)}px`;
+                    
+                    newDot.dataset.row = r;
+                    newDot.dataset.col = c;
+                    newDot.addEventListener('pointerdown', handleTap);
+                    
+                    boardElement.appendChild(newDot);
+                    board[r][c] = { color: randomColor, element: newDot };
+                    
+                    void newDot.offsetWidth; 
+                    newDot.style.top = `${getTopPos(r)}px`;
+                }
+            }
+
+            // Unlock board when animations finish
+            setTimeout(() => {
+                isAnimating = false;
+            }, 400);
+        }
+
+        initGame();
+    </script>
+</body>
+</html>
