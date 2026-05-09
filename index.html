@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Dot Pop Peanut Puzzle</title>
+    <title>Peanut Pop</title>
     <style>
         html, body {
             margin: 0;
@@ -43,10 +43,10 @@
         #top-ui { text-align: center; }
 
         h1 {
-            font-size: 3rem;
+            font-size: 2.8rem;
             margin: 0;
             color: #FFFFFF;
-            letter-spacing: 3px;
+            letter-spacing: 2px;
             text-transform: uppercase;
         }
 
@@ -56,8 +56,15 @@
             margin-top: 10px;
         }
 
-        #score-display { color: #FFDE00; /* Yellow */ }
-        #moves-display { color: #00E5FF; /* Cyan */ }
+        #score-display { color: #FFDE00; }
+        
+        #highscore-display { 
+            font-size: 1.6rem;
+            color: #FF007F; 
+            margin-top: 5px;
+        }
+        
+        #moves-display { color: #00E5FF; margin-top: 15px; }
 
         #peanut-container {
             width: 180px;
@@ -102,11 +109,10 @@
         .dot:active { transform: scale(0.9); }
         .dot.popped { transform: scale(0); }
 
-        /* Dot Colors and Item Styles */
-        .color-0 { background-color: #FFDE00; } /* Yellow */
-        .color-1 { background-color: #FF007F; } /* Magenta */
-        .color-2 { background-color: #00E5FF; } /* Cyan */
-        .color-3 { background-color: #39FF14; } /* Green */
+        .color-0 { background-color: #FFDE00; } 
+        .color-1 { background-color: #FF007F; } 
+        .color-2 { background-color: #00E5FF; } 
+        .color-3 { background-color: #39FF14; } 
         
         .item-starburst { 
             background-color: #FF5722; 
@@ -116,12 +122,11 @@
             background-color: #795548; 
         }
 
-        /* Game Over Overlay */
         #game-over-overlay {
             position: absolute;
             top: 0; left: 0; right: 0; bottom: 0;
             background-color: rgba(0, 0, 0, 0.85);
-            display: none; /* Hidden by default */
+            display: none; 
             flex-direction: column;
             justify-content: center;
             align-items: center;
@@ -132,7 +137,7 @@
 
         #game-over-overlay h2 {
             font-size: 4rem;
-            color: #39FF14; /* Neon Green */
+            color: #39FF14; 
             margin: 0 0 20px 0;
             letter-spacing: 2px;
         }
@@ -166,8 +171,9 @@
     <div id="game-container">
         <div id="ui-panel">
             <div id="top-ui">
-                <h1>DOT POP</h1>
+                <h1>PEANUT POP</h1>
                 <div id="score-display" class="stat-display">Score: <span id="score">0</span></div>
+                <div id="highscore-display" class="stat-display">Best: <span id="highscore">0</span></div>
                 <div id="moves-display" class="stat-display">Moves: <span id="moves">30</span></div>
             </div>
 
@@ -202,9 +208,12 @@
         let moves = startingMoves;
         let isAnimating = false;
         let isGameOver = false;
+        
+        let highScore = localStorage.getItem('peanutPopHighScore') || 0;
 
         const boardElement = document.getElementById('game-board');
         const scoreElement = document.getElementById('score');
+        const highScoreElement = document.getElementById('highscore');
         const movesElement = document.getElementById('moves');
         const overlayElement = document.getElementById('game-over-overlay');
         const finalScoreElement = document.getElementById('final-score');
@@ -216,9 +225,22 @@
         function getLeftPos(col) { return padding + col * (dotSize + gap); }
         function getTopPos(row) { return padding + row * (dotSize + gap); }
 
+        // Helper function to check what the base outfit should be
+        function getBaseOutfit() {
+            return score >= 500 ? 'images/peanut-r.png' : 'images/peanut-idle.png';
+        }
+
         function triggerPeanutJump() {
-            peanutImg.src = 'images/peanut-jump.png';
+            // Determine which jumping image to use based on the base outfit
+            let jumpImage = 'images/peanut-jump.png';
+            if (getBaseOutfit() === 'images/peanut-r.png') {
+                jumpImage = 'images/peanut-r-jump.png';
+            }
+            
+            peanutImg.src = jumpImage;
+            
             if(jumpTimeout) clearTimeout(jumpTimeout);
+            // After jumping, he lands in whatever his currentBaseImage is set to
             jumpTimeout = setTimeout(() => {
                 peanutImg.src = currentBaseImage;
             }, 600);
@@ -228,10 +250,16 @@
             score += points;
             scoreElement.innerText = score;
             
-            // Check Milestone
-            if (score >= 500 && currentBaseImage !== 'images/peanut-r.png') {
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('peanutPopHighScore', highScore);
+                highScoreElement.innerText = highScore;
+            }
+            
+            // If they pass 500 points on a normal move, give them the R shirt immediately
+            if (score >= 500 && currentBaseImage === 'images/peanut-idle.png') {
                 currentBaseImage = 'images/peanut-r.png';
-                if (peanutImg.src.indexOf('peanut-jump') === -1) {
+                if (peanutImg.src.includes('peanut-idle.png')) {
                     peanutImg.src = currentBaseImage;
                 }
             }
@@ -267,7 +295,6 @@
             dot.dataset.col = c;
             dot.addEventListener('pointerdown', handleTap); 
             
-            // Insert before the overlay so the overlay stays on top
             boardElement.insertBefore(dot, overlayElement);
             return { type: type, color: colorVal, element: dot };
         }
@@ -281,9 +308,9 @@
             
             scoreElement.innerText = score;
             movesElement.innerText = moves;
+            highScoreElement.innerText = highScore; 
             overlayElement.style.display = 'none';
 
-            // Clean up old dots
             const oldDots = document.querySelectorAll('.dot');
             oldDots.forEach(dot => dot.remove());
             board = [];
@@ -326,6 +353,7 @@
             if (cellData.type === 'starburst') {
                 for(let i=0; i<rows; i++) if(board[i][c]) matched.push({row: i, col: c});
                 for(let j=0; j<cols; j++) if(board[r][j] && j !== c) matched.push({row: r, col: j});
+                
             } 
             else if (cellData.type === 'color') {
                 const color = cellData.color;
@@ -346,9 +374,20 @@
                 floodFill(r, c);
             }
 
-            // If valid move, deduct move counter and proceed
+            // Valid Move Executed
             if ((cellData.type === 'color' && matched.length >= 2) || cellData.type === 'starburst') {
                 isAnimating = true;
+
+                // 1. Revert any special costumes from the previous turn back to the base outfit
+                currentBaseImage = getBaseOutfit();
+                if (!peanutImg.src.includes('peanut-jump')) {
+                    peanutImg.src = currentBaseImage;
+                }
+                
+                // 2. If this turn is a starburst, set the outfit to Magician
+                if (cellData.type === 'starburst') {
+                     currentBaseImage = 'images/peanut-magician.png';
+                }
                 
                 moves--;
                 movesElement.innerText = moves;
@@ -418,6 +457,9 @@
                     
                     updateScore(100);
                     
+                    // Gardener Trigger! Overwrites currentBaseImage for this turn
+                    currentBaseImage = 'images/peanut-gardener.png';
+                    
                     bottomCell.element.classList.add('popped');
                     setTimeout(() => {
                         if(bottomCell.element.parentNode) {
@@ -437,7 +479,6 @@
             } else {
                 isAnimating = false;
                 
-                // End game check runs only when board completely stops moving
                 if (moves <= 0) {
                     isGameOver = true;
                     finalScoreElement.innerText = score;
